@@ -1,7 +1,7 @@
-import { defineBoot } from '#q-app/wrappers';
-import axios, { type AxiosInstance } from 'axios';
+import { boot } from 'quasar/wrappers';
+import axios, { AxiosInstance } from 'axios';
 
-declare module 'vue' {
+declare module '@vue/runtime-core' {
   interface ComponentCustomProperties {
     $axios: AxiosInstance;
     $api: AxiosInstance;
@@ -14,18 +14,44 @@ declare module 'vue' {
 // good idea to move this instance creation inside of the
 // "export default () => {}" function below (which runs individually
 // for each client)
-const api = axios.create({ baseURL: 'https://api.example.com' });
 
-export default defineBoot(({ app }) => {
-  // for use inside Vue files (Options API) through this.$axios and this.$api
-
-  app.config.globalProperties.$axios = axios;
-  // ^ ^ ^ this will allow you to use this.$axios (for Vue Options API form)
-  //       so you won't necessarily have to import axios in each vue file
-
-  app.config.globalProperties.$api = api;
-  // ^ ^ ^ this will allow you to use this.$api (for Vue Options API form)
-  //       so you can easily perform requests against your app's API
+const instance = axios.create({
+  baseURL: process.env.BACKEND_URL
+    ? `${process.env.BACKEND_URL}/admin`
+    : 'https://testerp.co/tenant/api',
 });
 
-export { api };
+
+instance.interceptors.request.use(
+  (config) => {
+    const authToken = "1063|CRr2W8rNY58v98WceTlvCqDp1kgPxhsxeF8wJLUY";
+    if (authToken) {
+      config.headers['Authorization'] = `Bearer ${authToken}`;
+    }
+    config.headers['Accept'] = 'application/json';
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+instance.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    const status = error.response.status;
+
+    if (status === 401) {
+      // useAuthStore().clearAuthToken();
+      // //todo: redirect to / page via router
+      // location.reload();
+    }
+    return Promise.reject(error);
+  }
+);
+export default boot(({ app }) => {
+  app.config.globalProperties.$http = axios;
+});
+
+export { instance };
